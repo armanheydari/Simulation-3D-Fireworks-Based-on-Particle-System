@@ -1,0 +1,6 @@
+1
+# red teapot
+../src/meshes/teapot.obj
+1 1 1 0 1 0 -90 1 -0 1
+0.1 0.1 0.1 0.9 0.1 0.1 1 1 1 100
+ceramic.bmp
