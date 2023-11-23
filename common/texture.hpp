@@ -12,5 +12,7 @@ GLuint loadBMP_custom(const char * imagepath);
 // Load a .DDS file using GLFW's own loader
 GLuint loadDDS(const char * imagepath);
 
+// Apply KMeans clustering to the point and return an array of the centers
+std::vector<glm::vec3> kMeans(std::vector<glm::vec3> data);
 
 #endif

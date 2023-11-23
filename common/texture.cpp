@@ -1,10 +1,18 @@
+// Hyper parameters of the project
+#define CLUSTER_NO 100
+#define MAX_ITERATION 1000
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <random>
 #include <string.h>
+#include <vector>
 
 #include <GL/glew.h>
 
 #include <glfw3.h>
+
+#include <glm/glm.hpp>
 
 
 GLuint loadBMP_custom(const char * imagepath){
@@ -215,4 +223,119 @@ GLuint loadDDS(const char * imagepath){
 	return textureID;
 
 
+}
+
+
+// Function to calculate Euclidean distance between two points
+float distance(const glm::vec3& a, const glm::vec3& b) {
+	float dx = a.x - b.x;
+	float dy = a.y - b.y;
+	float dz = a.z - b.z;
+	return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+// Function that generates a random float between 2 numbers
+float generateRandomFloat(float x, float y) {
+	// Use a random_device to seed the random number generator
+	std::random_device rd;
+	std::mt19937 generator(rd());
+
+	// Define the distribution for floats between x and y
+	std::uniform_real_distribution<float> distribution(x, y);
+
+	// Generate a random float
+	return distribution(generator);
+}
+
+// Function to initialize cluster centers
+std::vector<glm::vec3> initializeClusterCenters(std::vector<glm::vec3> data) {
+	// Find each of the axes highest and lowest value
+	std::vector<glm::vec3> clusterCenters;
+	float maxx = std::numeric_limits<float>::min();
+	float maxy = std::numeric_limits<float>::min();
+	float maxz = std::numeric_limits<float>::min();
+	float minx = std::numeric_limits<float>::max();
+	float miny = std::numeric_limits<float>::max();
+	float minz = std::numeric_limits<float>::max();
+	for (int i = 0; i < data.size(); i++) {
+		if (data[i].x > maxx)
+			maxx = data[i].x;
+		if (data[i].y > maxy)
+			maxy = data[i].y;
+		if (data[i].z > maxz)
+			maxz = data[i].z;
+		if (data[i].x < minx)
+			minx = data[i].x;
+		if (data[i].y < miny)
+			miny = data[i].y;
+		if (data[i].z < minz)
+			minz = data[i].z;
+	}
+	// Generate random numbers between the highest and the lowest
+	for (int i = 0; i < CLUSTER_NO; i++) {
+		clusterCenters.push_back(glm::vec3(
+			generateRandomFloat(minx, maxx),
+			generateRandomFloat(miny, maxy),
+			generateRandomFloat(minz, maxz)));
+
+		printf("%f   ", clusterCenters[i].x);
+		printf("%f   ", clusterCenters[i].y);
+		printf("%f\n", clusterCenters[i].z);
+	}
+	
+	return clusterCenters;
+}
+
+// Function to assign each point to the nearest cluster center
+int assignToCluster(const glm::vec3& point, const std::vector <glm::vec3> clusterCenters) {
+	int minIndex = 0;
+	float minDistance = distance(point, clusterCenters[0]);
+
+	// Iterate over each cluster center and find the closest one
+	for (int i = 1; i < CLUSTER_NO; i++) {
+		float temp = distance(point, clusterCenters[i]);
+		if (temp < minDistance) {
+			minIndex = i;
+			minDistance = temp;
+		}
+	}
+
+	return minIndex;
+}
+
+// Function to update the cluster center which inputs all the points of that cluster
+glm::vec3 updateCenter(const std::vector<glm::vec3> cluster) {
+	int size = cluster.size();
+	// Check if the cluster is empty to avoid divi sion by zero
+	if (size == 0) {
+		return glm::vec3(0.0f);
+	}
+	// Sum up the coordinates of all points in the cluster
+	float sumX = 0, sumY = 0, sumZ = 0;
+	for (int i = 0; i < size; i++) {
+		sumX += cluster[i].x;
+		sumY += cluster[i].y;
+		sumZ += cluster[i].z;
+	}
+	// Calculate the average to get the new cluster center
+	return glm::vec3(sumX / size, sumY / size, sumZ / size);
+}
+
+// K-means clustering function
+std::vector<glm::vec3> kMeans(std::vector<glm::vec3> data) {
+	// K-means iterations
+	std::vector<glm::vec3> clusterCenters = initializeClusterCenters(data);
+	for (int i = 0; i < MAX_ITERATION; i++) {
+		std::vector<glm::vec3> clusters[CLUSTER_NO];
+		// Assign each data point to the nearest cluster
+		for (int j = 0; j < data.size(); j++) {
+			int clusterIndex = assignToCluster(data[j], clusterCenters);
+			clusters[clusterIndex].push_back(data[j]);
+		}
+		// Update cluster centers based on the assigned points
+		for (int j = 0; j < CLUSTER_NO; j++) {
+			clusterCenters[j] = updateCenter(clusters[j]);
+		}
+	}
+	return clusterCenters;
 }
