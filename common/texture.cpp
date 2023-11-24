@@ -1,6 +1,6 @@
 // Hyper parameters of the project
-#define CLUSTER_NO 100
-#define MAX_ITERATION 1000
+#define CLUSTER_NO 10
+#define MAX_ITERATION 100
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -277,10 +277,6 @@ std::vector<glm::vec3> initializeClusterCenters(std::vector<glm::vec3> data) {
 			generateRandomFloat(minx, maxx),
 			generateRandomFloat(miny, maxy),
 			generateRandomFloat(minz, maxz)));
-
-		printf("%f   ", clusterCenters[i].x);
-		printf("%f   ", clusterCenters[i].y);
-		printf("%f\n", clusterCenters[i].z);
 	}
 	
 	return clusterCenters;
@@ -306,7 +302,7 @@ int assignToCluster(const glm::vec3& point, const std::vector <glm::vec3> cluste
 // Function to update the cluster center which inputs all the points of that cluster
 glm::vec3 updateCenter(const std::vector<glm::vec3> cluster) {
 	int size = cluster.size();
-	// Check if the cluster is empty to avoid divi sion by zero
+	// Check if the cluster is empty to avoid division by zero
 	if (size == 0) {
 		return glm::vec3(0.0f);
 	}

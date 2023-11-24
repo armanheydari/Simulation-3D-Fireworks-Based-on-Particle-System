@@ -30,6 +30,11 @@ struct Particle {
 	float size, angle, weight;
 	float life; // Remaining life of the particle. if <0 : dead and unused.
 	float cameradistance; // *Squared* distance to the camera. if dead : -1.0f
+	int clusterIndex; // The target cluster
+	float clusterDistance; // Distance with the target cluster
+	float initialMass; // Mass of the particle at the beggining
+	float clusterTime; // The amount of time that takes to reach the target cluster, < life for sure
+	float CY, CXZ; // The constants that we will use in calculating speed
 
 	bool operator<(const Particle& that) const {
 		// Sort in reverse order : far particles drawn first.
@@ -37,23 +42,24 @@ struct Particle {
 	}
 };
 
-const int MaxParticles = 100;
-Particle ParticlesContainer[MaxParticles];
-int LastUsedParticle = 0;
+const int maxParticles = 10000;
+const float airCoefficient = 0.5, gravityCoefficient = 9.81, eps = 0.0001;
+Particle particlesContainer[maxParticles];
+int lastUsedParticle = 0;
 
 // Finds a Particle in ParticlesContainer which isn't used yet.
 int FindUnusedParticle() {
 
-	for (int i = LastUsedParticle; i < MaxParticles; i++) {
-		if (ParticlesContainer[i].life < 0) {
-			LastUsedParticle = i;
+	for (int i = lastUsedParticle; i < maxParticles; i++) {
+		if (particlesContainer[i].life < 0) {
+			lastUsedParticle = i;
 			return i;
 		}
 	}
 
-	for (int i = 0; i < LastUsedParticle; i++) {
-		if (ParticlesContainer[i].life < 0) {
-			LastUsedParticle = i;
+	for (int i = 0; i < lastUsedParticle; i++) {
+		if (particlesContainer[i].life < 0) {
+			lastUsedParticle = i;
 			return i;
 		}
 	}
@@ -62,7 +68,29 @@ int FindUnusedParticle() {
 }
 
 void SortParticles() {
-	std::sort(&ParticlesContainer[0], &ParticlesContainer[MaxParticles]);
+	std::sort(&particlesContainer[0], &particlesContainer[maxParticles]);
+}
+
+float CalculateYVelocity(Particle p, float t) {
+	float temp1 = p.CY * std::pow(p.life - t, airCoefficient * p.life / p.initialMass);
+	float temp2 = (p.initialMass * gravityCoefficient) / ((airCoefficient * p.life - p.initialMass) * (p.life - t) + eps);
+	return temp1+temp2;
+}
+
+float CalculateXZVelocity(Particle p, float t) {
+	float temp = p.life * airCoefficient / p.initialMass;
+	return p.CXZ * std::pow(p.life - t, temp);
+}
+
+float CalculateCYCoefficient(Particle p) {
+	float temp = (p.life * airCoefficient / p.initialMass) + 1;
+	temp = temp / ((std::pow(p.life, temp) + std::pow(p.life - p.clusterTime, temp))+eps);
+	return (p.clusterDistance - (p.initialMass * gravityCoefficient * (2 * p.life * p.clusterTime - p.clusterTime * p.clusterTime)) / (2 * (airCoefficient * p.life - p.initialMass))+eps) * temp;
+}
+
+float CalculateCXZCoefficient(Particle p) {
+	float temp = (p.life * airCoefficient / p.initialMass) + 1;
+	return p.clusterDistance*temp/((std::pow(p.life, temp) + std::pow(p.life - p.clusterTime, temp))+ eps);
 }
 
 int main(void)
@@ -129,12 +157,12 @@ int main(void)
 	GLuint TextureID = glGetUniformLocation(programID, "myTextureSampler");
 
 
-	static GLfloat* g_particule_position_size_data = new GLfloat[MaxParticles * 4];
-	static GLubyte* g_particule_color_data = new GLubyte[MaxParticles * 4];
+	static GLfloat* g_particule_position_size_data = new GLfloat[maxParticles * 4];
+	static GLubyte* g_particule_color_data = new GLubyte[maxParticles * 4];
 
-	for (int i = 0; i < MaxParticles; i++) {
-		ParticlesContainer[i].life = -1.0f;
-		ParticlesContainer[i].cameradistance = -1.0f;
+	for (int i = 0; i < maxParticles; i++) {
+		particlesContainer[i].life = -1.0f;
+		particlesContainer[i].cameradistance = -1.0f;
 	}
 
 
@@ -159,23 +187,23 @@ int main(void)
 	glGenBuffers(1, &particles_position_buffer);
 	glBindBuffer(GL_ARRAY_BUFFER, particles_position_buffer);
 	// Initialize with empty (NULL) buffer : it will be updated later, each frame.
-	glBufferData(GL_ARRAY_BUFFER, MaxParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, maxParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_DRAW);
 
 	// The VBO containing the colors of the particles
 	GLuint particles_color_buffer;
 	glGenBuffers(1, &particles_color_buffer);
 	glBindBuffer(GL_ARRAY_BUFFER, particles_color_buffer);
 	// Initialize with empty (NULL) buffer : it will be updated later, each frame.
-	glBufferData(GL_ARRAY_BUFFER, MaxParticles * 4 * sizeof(GLubyte), NULL, GL_STREAM_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, maxParticles * 4 * sizeof(GLubyte), NULL, GL_STREAM_DRAW);
 
 	// Load Object
 	std::vector<glm::vec3> vertices, normals;
 	std::vector<glm::ivec3> vertexIndices, uvIndices, normalIndices;
 	std::vector<glm::vec2>  uvs;
 	loadOBJ_indexed("../src/meshes/teapot.obj", vertices, uvs, normals, vertexIndices, uvIndices, normalIndices);
-	printf("number of vertices of the object: %d\n", vertices.size());
+	//printf("number of vertices of the object: %d\n", vertices.size());
 
-	// Applu Kmeans clustering to the object
+	// Apply Kmeans clustering to the object
 	std::vector<glm::vec3> clusterCenters = kMeans(vertices);
 	/*printf("%s   ", "---------------------");
 	for (int i = 0; i < 10; i++) {
@@ -184,7 +212,55 @@ int main(void)
 		printf("%f\n", clusterCenters[i].z);
 	}*/
 
-	double lastTime = glfwGetTime();
+	// Initialize all particles
+	int newparticles = 5000, clusterCounterIndex=0;
+	std::vector<int> clusterCounter(clusterCenters.size(), 0);
+	for (int i = 0; i < newparticles; i++) {
+		int particleIndex = FindUnusedParticle();
+		particlesContainer[particleIndex].pos = glm::vec3(0, 10, -20.0f);
+		particlesContainer[particleIndex].life = 5.0f; // This particle will live 5 seconds.
+		particlesContainer[particleIndex].clusterTime = 3.0f; // This particle reach target in 4 seconds.
+		particlesContainer[particleIndex].initialMass = 0.1;
+		particlesContainer[particleIndex].speed = glm::vec3(0, 10, -20.0f);
+		if (clusterCounter[clusterCounterIndex] <= newparticles / clusterCenters.size())
+			particlesContainer[particleIndex].clusterIndex = clusterCounterIndex;
+		else
+			particlesContainer[particleIndex].clusterIndex = ++clusterCounterIndex;
+		particlesContainer[particleIndex].clusterDistance =
+			distance(particlesContainer[particleIndex].pos, clusterCenters[particlesContainer[particleIndex].clusterIndex]);
+		particlesContainer[particleIndex].CY = CalculateCYCoefficient(particlesContainer[particleIndex]);
+		particlesContainer[particleIndex].CXZ = CalculateCXZCoefficient(particlesContainer[particleIndex]);
+		
+		float spread = 5.5f;
+		glm::vec3 maindir = glm::vec3(0.0f, -10.0f, 0.0f);
+		// Very bad way to generate a random direction; 
+		// See for instance http://stackoverflow.com/questions/5408276/python-uniform-spherical-distribution instead,
+		// combined with some user-controlled parameters (main direction, spread, etc)
+		glm::vec3 randomdir = glm::vec3(
+			(rand() % 2000 - 1000.0f) / 1000.0f,
+			(rand() % 2000 - 1000.0f) / 1000.0f,
+			(rand() % 2000 - 1000.0f) / 1000.0f
+		);
+
+		//particlesContainer[particleIndex].speed = maindir + randomdir * spread;
+
+
+		// Very bad way to generate a random color
+		/*ParticlesContainer[particleIndex].r = rand() % 256;
+		ParticlesContainer[particleIndex].g = rand() % 256;
+		ParticlesContainer[particleIndex].b = rand() % 256;
+		ParticlesContainer[particleIndex].a = (rand() % 256) / 3;*/
+		particlesContainer[particleIndex].r = 250;
+		particlesContainer[particleIndex].g = 250;
+		particlesContainer[particleIndex].b = 250;
+		particlesContainer[particleIndex].a = 256;
+
+		//ParticlesContainer[particleIndex].size = (rand() % 1000) / 2000.0f + 0.1f;
+		particlesContainer[particleIndex].size = 0.2;
+	}
+
+	double lastTime = glfwGetTime(), time=0.0;
+
 	do
 	{
 		// Clear the screen
@@ -193,7 +269,7 @@ int main(void)
 		double currentTime = glfwGetTime();
 		double delta = currentTime - lastTime;
 		lastTime = currentTime;
-
+		time += delta;
 
 		computeMatricesFromInputs();
 		glm::mat4 ProjectionMatrix = getProjectionMatrix();
@@ -209,50 +285,16 @@ int main(void)
 		// Generate 10 new particule each millisecond,
 		// but limit this to 16 ms (60 fps), or if you have 1 long frame (1sec),
 		// newparticles will be huge and the next frame even longer.
-		int newparticles = (int)(delta * 10000.0);
-		if (newparticles > (int)(0.016f * 10000.0))
-			newparticles = (int)(0.016f * 10000.0);
-
-		for (int i = 0; i < newparticles; i++) {
-			int particleIndex = FindUnusedParticle();
-			ParticlesContainer[particleIndex].life = 500.0f; // This particle will live 5 seconds.
-			ParticlesContainer[particleIndex].pos = glm::vec3(0, 0, -20.0f);
-
-			float spread = 1.5f;
-			glm::vec3 maindir = glm::vec3(0.0f, 10.0f, 0.0f);
-			// Very bad way to generate a random direction; 
-			// See for instance http://stackoverflow.com/questions/5408276/python-uniform-spherical-distribution instead,
-			// combined with some user-controlled parameters (main direction, spread, etc)
-			glm::vec3 randomdir = glm::vec3(
-				(rand() % 2000 - 1000.0f) / 1000.0f,
-				(rand() % 2000 - 1000.0f) / 1000.0f,
-				(rand() % 2000 - 1000.0f) / 1000.0f
-			);
-
-			ParticlesContainer[particleIndex].speed = maindir + randomdir * spread;
-
-
-			// Very bad way to generate a random color
-			/*ParticlesContainer[particleIndex].r = rand() % 256;
-			ParticlesContainer[particleIndex].g = rand() % 256;
-			ParticlesContainer[particleIndex].b = rand() % 256;
-			ParticlesContainer[particleIndex].a = (rand() % 256) / 3;*/
-			ParticlesContainer[particleIndex].r = 100;
-			ParticlesContainer[particleIndex].g = 10;
-			ParticlesContainer[particleIndex].b = 20;
-			ParticlesContainer[particleIndex].a = (rand() % 256) / 3;
-
-			//ParticlesContainer[particleIndex].size = (rand() % 1000) / 2000.0f + 0.1f;
-			ParticlesContainer[particleIndex].size = 0.1;
-		}
-
+		//int newparticles = (int)(delta * 10000.0);
+		//if (newparticles > (int)(0.016f * 10000.0))
+			//newparticles = (int)(0.016f * 10000.0);
 
 
 		// Simulate all particles
 		int ParticlesCount = 0;
-		for (int i = 0; i < MaxParticles; i++) {
+		for (int i = 0; i < maxParticles; i++) {
 
-			Particle& p = ParticlesContainer[i]; // shortcut
+			Particle& p = particlesContainer[i]; // shortcut
 
 			if (p.life > 0.0f) {
 
@@ -261,11 +303,10 @@ int main(void)
 				if (p.life > 0.0f) {
 
 					// Simulate simple physics : gravity only, no collisions
-					p.speed += glm::vec3(0.0f, -9.81f, 0.0f) * (float)delta * 0.5f;
-					//p.pos += p.speed * (float)delta;
-					p.pos = clusterCenters[i];
+					p.speed += glm::vec3(0, CalculateYVelocity(p, time), 0);
+					p.pos += p.speed * (float)delta;
 					p.cameradistance = glm::length(p.pos - CameraPosition);
-
+					printf("%f %f %f     ", p.pos.x, p.pos.y, p.pos.z);
 					// Fill the GPU buffer
 					g_particule_position_size_data[4 * ParticlesCount + 0] = p.pos.x;
 					g_particule_position_size_data[4 * ParticlesCount + 1] = p.pos.y;
@@ -290,15 +331,15 @@ int main(void)
 		}
 
 		SortParticles();
-
+		printf("\n");
 
 		// Update the buffers that OpenGL uses for rendering.
 		glBindBuffer(GL_ARRAY_BUFFER, particles_position_buffer);
-		glBufferData(GL_ARRAY_BUFFER, MaxParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
+		glBufferData(GL_ARRAY_BUFFER, maxParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
 		glBufferSubData(GL_ARRAY_BUFFER, 0, ParticlesCount * sizeof(GLfloat) * 4, g_particule_position_size_data);
 
 		glBindBuffer(GL_ARRAY_BUFFER, particles_color_buffer);
-		glBufferData(GL_ARRAY_BUFFER, MaxParticles * 4 * sizeof(GLubyte), NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
+		glBufferData(GL_ARRAY_BUFFER, maxParticles * 4 * sizeof(GLubyte), NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
 		glBufferSubData(GL_ARRAY_BUFFER, 0, ParticlesCount * sizeof(GLubyte) * 4, g_particule_color_data);
 
 

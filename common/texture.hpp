@@ -15,4 +15,7 @@ GLuint loadDDS(const char * imagepath);
 // Apply KMeans clustering to the point and return an array of the centers
 std::vector<glm::vec3> kMeans(std::vector<glm::vec3> data);
 
+// Find euclidean distance of 2 points
+float distance(const glm::vec3& a, const glm::vec3& b);
+
 #endif
