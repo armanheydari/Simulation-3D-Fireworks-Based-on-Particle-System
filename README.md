@@ -1,16 +1,3 @@
-# Simulation-3D-Fireworks-Based-on-Particle-System
-Bunny:
-<img width="1152" height="720" alt="bunny" src="https://github.com/user-attachments/assets/3bedde85-50b3-452c-ad24-f1b2e3c92cee" />
-
-Explosion Teapot:
-<img width="1152" height="720" alt="explosion_teapot" src="https://github.com/user-attachments/assets/ac100fd3-d905-42f7-a9de-7f20a17533df" />
-
-Teapot: 
-<img width="1152" height="720" alt="teapot" src="https://github.com/user-attachments/assets/59454369-762f-4484-bd13-7384175d7957" />
-
-hand:
-<img width="1152" height="720" alt="hand" src="https://github.com/user-attachments/assets/bdd31dc6-5dab-4dc4-a457-827b11fc0ce8" />
-
 # 3D Fireworks Particle Simulator
 
 > A real-time OpenGL particle system that simulates fireworks exploding into user-defined 3D mesh shapes — guided by physics-based velocity formulas and K-means cluster targeting.
@@ -23,9 +10,9 @@ hand:
 
 | Bunny | Teapot |
 |:---:|:---:|
-| <img width="576" alt="bunny" src="https://github.com/user-attachments/assets/3bedde85-50b3-452c-ad24-f1b2e3c92cee" /> | <img width="576" alt="teapot" src="https://github.com/user-attachments/assets/59454369-762f-4484-bd13-7384175d7957" /> |
+| <img width="550" alt="bunny" src="https://github.com/user-attachments/assets/3bedde85-50b3-452c-ad24-f1b2e3c92cee" /> | <img width="550" alt="teapot" src="https://github.com/user-attachments/assets/59454369-762f-4484-bd13-7384175d7957" /> |
 | **Explosion Teapot** | **Hand** |
-| <img width="576" alt="explosion_teapot" src="https://github.com/user-attachments/assets/ac100fd3-d905-42f7-a9de-7f20a17533df" /> | <img width="576" alt="hand" src="https://github.com/user-attachments/assets/bdd31dc6-5dab-4dc4-a457-827b11fc0ce8" /> |
+| <img width="550" alt="explosion_teapot" src="https://github.com/user-attachments/assets/ac100fd3-d905-42f7-a9de-7f20a17533df" /> | <img width="550" alt="hand" src="https://github.com/user-attachments/assets/bdd31dc6-5dab-4dc4-a457-827b11fc0ce8" /> |
 ## 📌 Overview
 
 This project implements a real-time 3D fireworks simulator in C++ and OpenGL where the explosion particles don't disperse randomly — they converge into the surface of an arbitrary 3D mesh. Load any `.obj` file, and the firework will reshape itself to match it.
